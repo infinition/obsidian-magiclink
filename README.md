@@ -186,3 +186,8 @@ Each result row has a small 🔗 button that inserts the appropriate link:
 ---
 
 Made with ❤️ for the Obsidian community.
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=infinition/obsidian-magiclink&type=date&legend=top-left)](https://www.star-history.com/#infinition/obsidian-magiclink&type=date&legend=top-left)
+
