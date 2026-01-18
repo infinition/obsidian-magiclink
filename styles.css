@@ -1,0 +1,138 @@
+/* MagicLink Popover */
+.magiclink-popover {
+    position: fixed;
+    z-index: 10000;
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+    min-width: 260px;
+    max-width: 400px;
+    max-height: 450px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    backdrop-filter: blur(12px);
+}
+
+.magiclink-header {
+    padding: 10px 14px;
+    border-bottom: 2px solid var(--interactive-accent);
+    margin-bottom: 6px;
+    color: var(--text-accent);
+    font-weight: 700;
+    font-size: 17px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.magiclink-phrase-badge {
+    font-size: 10px;
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+.magiclink-section {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.magiclink-section-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 8px 14px 4px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    border-top: 1px solid var(--background-modifier-border);
+    margin-top: 4px;
+}
+
+/* Result row with button + insert icon */
+.magiclink-row {
+    display: flex;
+    gap: 4px;
+    align-items: stretch;
+}
+
+.magiclink-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    background: var(--background-secondary);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: left;
+    color: var(--text-normal);
+    font-size: 13px;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.magiclink-btn:hover {
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    transform: translateX(4px);
+}
+
+/* Small insert button */
+.magiclink-insert-btn {
+    width: 36px;
+    min-width: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--background-secondary-alt);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.15s ease;
+    padding: 0;
+}
+
+.magiclink-insert-btn:hover {
+    background: #10b981;
+    border-color: #10b981;
+    transform: scale(1.1);
+}
+
+/* Highlighted words/phrases */
+.magiclink-word {
+    color: var(--text-accent);
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border-radius: 3px;
+}
+
+.magiclink-word:hover {
+    text-decoration-style: solid;
+    background: rgba(var(--interactive-accent-rgb), 0.25);
+    padding: 2px 4px;
+    margin: -2px -4px;
+}
+
+/* Scrollbar */
+.magiclink-popover::-webkit-scrollbar {
+    width: 6px;
+}
+
+.magiclink-popover::-webkit-scrollbar-thumb {
+    background: var(--background-modifier-border);
+    border-radius: 3px;
+}

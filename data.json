@@ -1,0 +1,11 @@
+{
+  "hoverDelayMs": 250,
+  "minWordLength": 3,
+  "maxResults": 10,
+  "detectNotes": true,
+  "detectHeadings": true,
+  "detectTags": true,
+  "detectProperties": true,
+  "excludedWords": "the, and, for, with, this, that, from, have, been, README",
+  "showInsertButton": true
+}
