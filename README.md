@@ -5,6 +5,11 @@
 
 **MagicLink** is a powerful hover-first navigation plugin for Obsidian. It automatically detects words and multi-word phrases in your notes that match note names, headings, tags, or property values, and displays an interactive popup with quick navigation and link insertion options.
 
+
+<img width="1079" height="827" alt="image" src="https://github.com/user-attachments/assets/8102ff58-e5f4-44c8-8853-8999c1a45991" />
+
+
+
 ## ✨ Features
 
 ### 🔍 Smart Detection
@@ -57,6 +62,13 @@ Add common words to an exclusion list so they won't trigger the popup.
 - **No popup while typing** - Prevents distractions during writing
 - **Popup stays visible** - The popup locks in place when your mouse enters it
 - **No interference** - Another word underneath won't replace the current popup
+
+
+### Settings
+
+<img width="817" height="880" alt="image" src="https://github.com/user-attachments/assets/58ceff00-45ad-4b03-a992-b480cf7edcb4" />
+
+<img width="771" height="458" alt="image" src="https://github.com/user-attachments/assets/46416374-2547-4af8-87c8-e00e32380698" />
 
 ---
 
