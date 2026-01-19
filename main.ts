@@ -1,21 +1,36 @@
 import { App, MarkdownView, Plugin, PluginSettingTab, Setting, TFile, MarkdownPostProcessorContext } from 'obsidian';
 
 interface MagicLinkSettings {
+    enabled: boolean;
     hoverDelayMs: number;
     minWordLength: number;
     maxResults: number;
-    maxPhraseWords: number; // NEW: max words in a phrase to detect
+    maxPhraseWords: number;
     detectNotes: boolean;
     detectHeadings: boolean;
     detectTags: boolean;
     detectProperties: boolean;
     excludedWords: string;
     showInsertButtons: boolean;
+    // Custom Styles
+    noteColor: string;
+    noteBold: boolean;
+    noteItalic: boolean;
+    headingColor: string;
+    headingBold: boolean;
+    headingItalic: boolean;
+    tagColor: string;
+    tagBold: boolean;
+    tagItalic: boolean;
+    propertyColor: string;
+    propertyBold: boolean;
+    propertyItalic: boolean;
 }
 
 const DEFAULT_SETTINGS: MagicLinkSettings = {
+    enabled: true,
     hoverDelayMs: 250,
-    minWordLength: 3,
+    minWordLength: 2,
     maxResults: 10,
     maxPhraseWords: 5,
     detectNotes: true,
@@ -24,6 +39,19 @@ const DEFAULT_SETTINGS: MagicLinkSettings = {
     detectProperties: true,
     excludedWords: 'the, and, for, with, this, that, from, have, been',
     showInsertButtons: true,
+    // Default styles (empty means use CSS default)
+    noteColor: '',
+    noteBold: false,
+    noteItalic: false,
+    headingColor: '',
+    headingBold: false,
+    headingItalic: false,
+    tagColor: '',
+    tagBold: false,
+    tagItalic: false,
+    propertyColor: '',
+    propertyBold: false,
+    propertyItalic: false,
 }
 
 interface HeadingMatch { file: TFile; heading: string; line: number; }
@@ -41,10 +69,10 @@ export default class MagicLinkPlugin extends Plugin {
     hoverTimeout: number | null = null;
     highlightTimeout: number | null = null;
     lastPhrase: string = '';
-    lastHoverLine: number = -1; // Track line where hover occurred
+    lastHoverLine: number = -1;
     isPopoverLocked: boolean = false;
     isTyping: boolean = false;
-
+    headerButtons: Map<MarkdownView, HTMLElement> = new Map();
 
     async onload() {
         await this.loadSettings();
@@ -94,6 +122,48 @@ export default class MagicLinkPlugin extends Plugin {
             if (this.highlightTimeout) window.clearTimeout(this.highlightTimeout);
             this.highlightTimeout = window.setTimeout(() => { this.isTyping = false; }, 2000);
         }));
+
+        this.app.workspace.onLayoutReady(() => {
+            this.addHeaderButtons();
+            this.registerEvent(this.app.workspace.on('layout-change', () => this.addHeaderButtons()));
+        });
+    }
+
+    addHeaderButtons() {
+        this.app.workspace.iterateAllLeaves(leaf => {
+            if (leaf.view instanceof MarkdownView) {
+                const view = leaf.view;
+                if (!this.headerButtons.has(view)) {
+                    const btn = view.addAction('wand', 'Toggle MagicLink', () => {
+                        this.settings.enabled = !this.settings.enabled;
+                        this.saveSettings();
+                        this.updateHeaderButtons();
+                        // Refresh current view to update highlights
+                        const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+                        if (activeView) {
+                            // @ts-ignore
+                            activeView.previewMode?.rerender(true);
+                        }
+                    });
+                    this.headerButtons.set(view, btn);
+                    this.updateButtonState(btn);
+                }
+            }
+        });
+    }
+
+    updateHeaderButtons() {
+        this.headerButtons.forEach(btn => this.updateButtonState(btn));
+    }
+
+    updateButtonState(btn: HTMLElement) {
+        if (this.settings.enabled) {
+            btn.style.opacity = '1';
+            btn.style.color = 'var(--interactive-accent)';
+        } else {
+            btn.style.opacity = '0.4';
+            btn.style.color = 'var(--text-muted)';
+        }
     }
 
     updateExcludedWords() {
@@ -165,78 +235,149 @@ export default class MagicLinkPlugin extends Plugin {
 
     isExcluded(word: string): boolean { return this.excludedWordsSet.has(word.toLowerCase()); }
 
-    hasAnyMatch(phrase: string): boolean {
-        if (phrase.split(/\s+/).length === 1 && this.isExcluded(phrase)) return false;
+    getMatchType(phrase: string): 'note' | 'heading' | 'tag' | 'property' | null {
+        if (this.isExcluded(phrase)) return null;
         const key = phrase.toLowerCase();
-        return (this.settings.detectNotes && this.noteIndex.hasMatch(phrase)) ||
-            (this.settings.detectHeadings && this.headingIndex.has(key)) ||
-            (this.settings.detectTags && this.tagIndex.has(key)) ||
-            (this.settings.detectProperties && this.propertyIndex.has(key));
+        if (this.settings.detectNotes && this.noteIndex.hasMatch(phrase)) return 'note';
+        if (this.settings.detectHeadings && this.headingIndex.has(key)) return 'heading';
+        if (this.settings.detectTags && this.tagIndex.has(key)) return 'tag';
+        if (this.settings.detectProperties && this.propertyIndex.has(key)) return 'property';
+        return null;
+    }
+
+    hasAnyMatch(phrase: string): boolean {
+        return this.getMatchType(phrase) !== null;
+    }
+
+    findAllMatches(text: string): { phrase: string, type: string, start: number, end: number }[] {
+        const wordRegex = /\w+/g;
+        const words: { text: string, start: number, end: number }[] = [];
+        let match;
+        while ((match = wordRegex.exec(text)) !== null) {
+            words.push({ text: match[0], start: match.index, end: wordRegex.lastIndex });
+        }
+
+        const matches: { phrase: string, type: string, start: number, end: number }[] = [];
+
+        for (let i = 0; i < words.length; i++) {
+            for (let len = this.settings.maxPhraseWords; len >= 1; len--) {
+                if (i + len > words.length) continue;
+
+                const phraseWords = words.slice(i, i + len);
+                const start = phraseWords[0].start;
+                const end = phraseWords[phraseWords.length - 1].end;
+                const phrase = text.slice(start, end);
+
+                if (phrase.length >= this.settings.minWordLength) {
+                    const type = this.getMatchType(phrase);
+                    if (type) {
+                        matches.push({ phrase, type, start, end });
+                    }
+                }
+            }
+        }
+        return matches;
     }
 
     postProcessor(el: HTMLElement, ctx: MarkdownPostProcessorContext) {
+        if (!this.settings.enabled) return;
+
         const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
         const textNodes: Text[] = [];
         while (walker.nextNode()) textNodes.push(walker.currentNode as Text);
 
         for (const textNode of textNodes) {
             const parent = textNode.parentElement;
-            if (!parent || parent.closest('a') || parent.closest('code') || parent.closest('pre')) continue;
+            if (!parent || parent.closest('a') || parent.closest('code') || parent.closest('pre') || parent.classList.contains('magiclink-word')) continue;
 
             const text = textNode.textContent || '';
+            const matches = this.findAllMatches(text);
 
-            // Find all matching phrases (single and multi-word)
-            const matches = this.findAllMatchingPhrases(text);
             if (matches.length === 0) continue;
 
-            let html = text;
-            // Sort by length descending to replace longer phrases first
-            matches.sort((a, b) => b.phrase.length - a.phrase.length);
+            // Filter overlaps - prioritize longer matches
+            const sortedMatches = matches.sort((a, b) => (b.end - b.start) - (a.end - a.start));
+            const acceptedMatches: typeof matches = [];
+            const occupied = new Array(text.length).fill(false);
 
-            for (const match of matches) {
-                const regex = new RegExp(`\\b(${this.escapeRegex(match.phrase)})\\b`, 'gi');
-                html = html.replace(regex, '<span class="magiclink-word">$1</span>');
+            for (const match of sortedMatches) {
+                let isOccupied = false;
+                for (let i = match.start; i < match.end; i++) {
+                    if (occupied[i]) { isOccupied = true; break; }
+                }
+                if (!isOccupied) {
+                    acceptedMatches.push(match);
+                    for (let i = match.start; i < match.end; i++) occupied[i] = true;
+                }
             }
 
-            if (html !== text) {
+            if (acceptedMatches.length === 0) continue;
+
+            // Sort by start position for reconstruction
+            acceptedMatches.sort((a, b) => a.start - b.start);
+
+            const fragment = document.createDocumentFragment();
+            let currentIndex = 0;
+
+            for (const match of acceptedMatches) {
+                if (match.start > currentIndex) {
+                    fragment.appendChild(document.createTextNode(text.slice(currentIndex, match.start)));
+                }
+
                 const span = document.createElement('span');
-                span.innerHTML = html;
-                textNode.parentNode?.replaceChild(span, textNode);
+                span.className = `magiclink-word magiclink-${match.type}`;
+                span.textContent = text.slice(match.start, match.end);
+                this.applyCustomStyles(span, match.type);
+                fragment.appendChild(span);
+
+                currentIndex = match.end;
             }
+
+            if (currentIndex < text.length) {
+                fragment.appendChild(document.createTextNode(text.slice(currentIndex)));
+            }
+
+            textNode.parentNode?.replaceChild(fragment, textNode);
         }
+    }
+
+    applyCustomStyles(el: HTMLElement, type: string) {
+        let color = '', bold = false, italic = false;
+
+        switch (type) {
+            case 'note':
+                color = this.settings.noteColor;
+                bold = this.settings.noteBold;
+                italic = this.settings.noteItalic;
+                break;
+            case 'heading':
+                color = this.settings.headingColor;
+                bold = this.settings.headingBold;
+                italic = this.settings.headingItalic;
+                break;
+            case 'tag':
+                color = this.settings.tagColor;
+                bold = this.settings.tagBold;
+                italic = this.settings.tagItalic;
+                break;
+            case 'property':
+                color = this.settings.propertyColor;
+                bold = this.settings.propertyBold;
+                italic = this.settings.propertyItalic;
+                break;
+        }
+
+        if (color) el.style.color = color;
+        if (bold) el.style.fontWeight = 'bold';
+        if (italic) el.style.fontStyle = 'italic';
     }
 
     escapeRegex(str: string): string {
         return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
-    findAllMatchingPhrases(text: string): { phrase: string, start: number, end: number }[] {
-        const words = text.split(/\b/).filter(w => /\w/.test(w));
-        const matches: { phrase: string, start: number, end: number }[] = [];
-        const foundPhrases = new Set<string>();
-
-        // Check all possible phrase combinations
-        for (let i = 0; i < words.length; i++) {
-            for (let len = this.settings.maxPhraseWords; len >= 1; len--) {
-                if (i + len > words.length) continue;
-
-                const phraseWords = words.slice(i, i + len);
-                const phrase = phraseWords.join(' ');
-
-                if (phrase.length >= this.settings.minWordLength &&
-                    !foundPhrases.has(phrase.toLowerCase()) &&
-                    this.hasAnyMatch(phrase)) {
-                    foundPhrases.add(phrase.toLowerCase());
-                    matches.push({ phrase, start: 0, end: 0 });
-                }
-            }
-        }
-
-        return matches;
-    }
-
     onMouseMove(e: MouseEvent) {
-        if (this.isTyping || this.isPopoverLocked) return;
+        if (!this.settings.enabled || this.isTyping || this.isPopoverLocked) return;
 
         const target = e.target as HTMLElement;
         if (this.popoverEl && this.popoverEl.contains(target)) { this.isPopoverLocked = true; return; }
@@ -264,20 +405,16 @@ export default class MagicLinkPlugin extends Plugin {
         const text = node.textContent || '';
         const offset = range.startOffset;
 
-        // Get word boundaries
         let wordStart = offset, wordEnd = offset;
         while (wordStart > 0 && /\w/.test(text[wordStart - 1])) wordStart--;
         while (wordEnd < text.length && /\w/.test(text[wordEnd])) wordEnd++;
 
         if (wordStart === wordEnd) return null;
 
-        // Try to find multi-word phrases around the cursor position
-        // Extract surrounding context
         const contextStart = Math.max(0, wordStart - 100);
         const contextEnd = Math.min(text.length, wordEnd + 100);
         const context = text.slice(contextStart, contextEnd);
 
-        // Find word positions in context
         const relativeOffset = wordStart - contextStart;
         const words: { word: string, start: number, end: number }[] = [];
         let match;
@@ -286,7 +423,6 @@ export default class MagicLinkPlugin extends Plugin {
             words.push({ word: match[0], start: match.index, end: match.index + match[0].length });
         }
 
-        // Find which word the cursor is on
         let cursorWordIndex = -1;
         for (let i = 0; i < words.length; i++) {
             if (words[i].start <= relativeOffset && words[i].end >= relativeOffset) {
@@ -297,28 +433,22 @@ export default class MagicLinkPlugin extends Plugin {
 
         if (cursorWordIndex === -1) return null;
 
-        // Try different phrase lengths, starting from longest
         for (let len = this.settings.maxPhraseWords; len >= 1; len--) {
-            // Try different starting positions that include the cursor word
             for (let startOffset = 0; startOffset < len; startOffset++) {
                 const startIdx = cursorWordIndex - startOffset;
                 const endIdx = startIdx + len;
 
                 if (startIdx < 0 || endIdx > words.length) continue;
 
-                const phraseWords = words.slice(startIdx, endIdx).map(w => w.word);
-                const phrase = phraseWords.join(' ');
+                const phraseWords = words.slice(startIdx, endIdx);
+                const start = phraseWords[0].start;
+                const end = phraseWords[phraseWords.length - 1].end;
+                const phrase = context.slice(start, end);
 
                 if (this.hasAnyMatch(phrase)) {
                     return { phrase };
                 }
             }
-        }
-
-        // Fall back to single word
-        const singleWord = text.slice(wordStart, wordEnd);
-        if (singleWord.length >= this.settings.minWordLength && this.hasAnyMatch(singleWord)) {
-            return { phrase: singleWord };
         }
 
         return null;
@@ -361,14 +491,12 @@ export default class MagicLinkPlugin extends Plugin {
             setTimeout(() => { if (!this.isPopoverLocked) this.hidePopover(); }, 200);
         });
 
-        // Header with phrase
         const header = this.popoverEl.createEl('div', { cls: 'magiclink-header' });
         header.createEl('strong', { text: phrase });
         if (phrase.includes(' ')) {
             header.createEl('span', { cls: 'magiclink-phrase-badge', text: `${phrase.split(' ').length} words` });
         }
 
-        // Current file heading
         if (currentFileHeading) {
             this.createResultRow(this.popoverEl, `📍 Here → #${phrase}`,
                 () => { if (activeFile) this.app.workspace.openLinkText(`#${phrase}`, activeFile.path); },
@@ -376,11 +504,9 @@ export default class MagicLinkPlugin extends Plugin {
             );
         }
 
-        // Notes section
         if (noteMatches.length > 0) {
             const section = this.popoverEl.createEl('div', { cls: 'magiclink-section' });
             section.createEl('div', { cls: 'magiclink-section-title', text: '📄 Notes' });
-
             noteMatches.slice(0, this.settings.maxResults).forEach(file => {
                 this.createResultRow(section, file.basename,
                     () => this.app.workspace.getLeaf().openFile(file),
@@ -389,11 +515,9 @@ export default class MagicLinkPlugin extends Plugin {
             });
         }
 
-        // Headings section
         if (otherHeadings.length > 0) {
             const section = this.popoverEl.createEl('div', { cls: 'magiclink-section' });
             section.createEl('div', { cls: 'magiclink-section-title', text: '# Headings' });
-
             otherHeadings.slice(0, this.settings.maxResults).forEach(match => {
                 this.createResultRow(section, `${match.file.basename} → #${match.heading}`,
                     () => this.app.workspace.openLinkText(`${match.file.path}#${match.heading}`, match.file.path),
@@ -402,11 +526,9 @@ export default class MagicLinkPlugin extends Plugin {
             });
         }
 
-        // Tags section
         if (otherTags.length > 0) {
             const section = this.popoverEl.createEl('div', { cls: 'magiclink-section' });
             section.createEl('div', { cls: 'magiclink-section-title', text: '🏷️ Tags' });
-
             otherTags.slice(0, this.settings.maxResults).forEach(match => {
                 this.createResultRow(section, `${match.file.basename} (line ${match.line + 1})`,
                     () => this.openFileAtLine(match.file, match.line),
@@ -415,11 +537,9 @@ export default class MagicLinkPlugin extends Plugin {
             });
         }
 
-        // Properties section
         if (otherProperties.length > 0) {
             const section = this.popoverEl.createEl('div', { cls: 'magiclink-section' });
             section.createEl('div', { cls: 'magiclink-section-title', text: '📋 Properties' });
-
             otherProperties.slice(0, this.settings.maxResults).forEach(match => {
                 this.createResultRow(section, `${match.file.basename} (${match.property})`,
                     () => this.app.workspace.getLeaf().openFile(match.file),
@@ -431,7 +551,6 @@ export default class MagicLinkPlugin extends Plugin {
 
     createResultRow(container: HTMLElement, label: string, onClick: () => void, linkText: string) {
         const row = container.createEl('div', { cls: 'magiclink-row' });
-
         const btn = row.createEl('button', { cls: 'magiclink-btn' });
         btn.textContent = label;
         btn.onclick = (e) => { e.stopPropagation(); onClick(); this.hidePopover(); };
@@ -466,24 +585,20 @@ export default class MagicLinkPlugin extends Plugin {
         const escapedPhrase = this.escapeRegex(phraseToFind);
         const phraseRegex = new RegExp(`\\b${escapedPhrase}\\b`, 'gi');
 
-        // Search all lines for the phrase
         const lineCount = editor.lineCount();
         for (let lineNum = 0; lineNum < lineCount; lineNum++) {
             const lineText = editor.getLine(lineNum);
             let match;
-            phraseRegex.lastIndex = 0; // Reset regex
+            phraseRegex.lastIndex = 0;
 
             while ((match = phraseRegex.exec(lineText)) !== null) {
                 const from = { line: lineNum, ch: match.index };
                 const to = { line: lineNum, ch: match.index + match[0].length };
-
-                // Replace and return (only first occurrence)
                 editor.replaceRange(linkText, from, to);
                 return;
             }
         }
     }
-
 
     hidePopover() {
         if (this.popoverEl) { this.popoverEl.remove(); this.popoverEl = null; }
@@ -496,18 +611,12 @@ export default class MagicLinkPlugin extends Plugin {
 class NoteIndex {
     index: Map<string, TFile[]> = new Map();
     constructor(public app: App) { }
-
-    async buildIndex() {
-        this.index.clear();
-        this.app.vault.getMarkdownFiles().forEach(f => this.addFile(f));
-    }
-
+    async buildIndex() { this.index.clear(); this.app.vault.getMarkdownFiles().forEach(f => this.addFile(f)); }
     addFile(file: TFile) {
         const name = file.basename.toLowerCase();
         if (!this.index.has(name)) this.index.set(name, []);
         this.index.get(name)!.push(file);
     }
-
     removeFile(file: TFile) {
         const name = file.basename.toLowerCase();
         const files = this.index.get(name);
@@ -516,7 +625,6 @@ class NoteIndex {
             if (filtered.length === 0) this.index.delete(name); else this.index.set(name, filtered);
         }
     }
-
     renameFile(file: TFile, oldPath: string) {
         const oldName = oldPath.split('/').pop()?.replace(/\.md$/, '')?.toLowerCase() || '';
         const oldFiles = this.index.get(oldName);
@@ -526,7 +634,6 @@ class NoteIndex {
         }
         this.addFile(file);
     }
-
     getFilesByName(name: string): TFile[] { return this.index.get(name.toLowerCase()) || []; }
     hasMatch(name: string): boolean { return this.index.has(name.toLowerCase()); }
 }
@@ -540,43 +647,73 @@ class MagicLinkSettingTab extends PluginSettingTab {
 
         containerEl.createEl('h1', { text: 'MagicLink Settings' });
 
+        new Setting(containerEl)
+            .setName('Enable MagicLink')
+            .setDesc('Toggle the entire plugin functionality on or off.')
+            .addToggle(t => t.setValue(this.plugin.settings.enabled).onChange(async v => {
+                this.plugin.settings.enabled = v;
+                await this.plugin.saveSettings();
+                this.plugin.updateHeaderButtons();
+                // Refresh current view
+                const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+                if (activeView) {
+                    // @ts-ignore
+                    activeView.previewMode?.rerender(true);
+                }
+            }));
+
         containerEl.createEl('h2', { text: 'Detection' });
-
-        new Setting(containerEl).setName('Detect Notes').setDesc('Match words/phrases with note names')
-            .addToggle(t => t.setValue(this.plugin.settings.detectNotes).onChange(async v => { this.plugin.settings.detectNotes = v; await this.plugin.saveSettings(); }));
-
-        new Setting(containerEl).setName('Detect Headings').setDesc('Match words/phrases with headings')
-            .addToggle(t => t.setValue(this.plugin.settings.detectHeadings).onChange(async v => { this.plugin.settings.detectHeadings = v; await this.plugin.saveSettings(); await this.plugin.buildAllIndexes(); }));
-
-        new Setting(containerEl).setName('Detect Tags').setDesc('Match words with tags (without #)')
-            .addToggle(t => t.setValue(this.plugin.settings.detectTags).onChange(async v => { this.plugin.settings.detectTags = v; await this.plugin.saveSettings(); await this.plugin.buildAllIndexes(); }));
-
-        new Setting(containerEl).setName('Detect Properties').setDesc('Match words with frontmatter values')
-            .addToggle(t => t.setValue(this.plugin.settings.detectProperties).onChange(async v => { this.plugin.settings.detectProperties = v; await this.plugin.saveSettings(); await this.plugin.buildAllIndexes(); }));
+        new Setting(containerEl).setName('Detect Notes').addToggle(t => t.setValue(this.plugin.settings.detectNotes).onChange(async v => { this.plugin.settings.detectNotes = v; await this.plugin.saveSettings(); }));
+        new Setting(containerEl).setName('Detect Headings').addToggle(t => t.setValue(this.plugin.settings.detectHeadings).onChange(async v => { this.plugin.settings.detectHeadings = v; await this.plugin.saveSettings(); await this.plugin.buildAllIndexes(); }));
+        new Setting(containerEl).setName('Detect Tags').addToggle(t => t.setValue(this.plugin.settings.detectTags).onChange(async v => { this.plugin.settings.detectTags = v; await this.plugin.saveSettings(); await this.plugin.buildAllIndexes(); }));
+        new Setting(containerEl).setName('Detect Properties').addToggle(t => t.setValue(this.plugin.settings.detectProperties).onChange(async v => { this.plugin.settings.detectProperties = v; await this.plugin.saveSettings(); await this.plugin.buildAllIndexes(); }));
 
         containerEl.createEl('h2', { text: 'Phrase Detection' });
+        new Setting(containerEl).setName('Max phrase words').addSlider(s => s.setLimits(1, 10, 1).setValue(this.plugin.settings.maxPhraseWords).setDynamicTooltip().onChange(async v => { this.plugin.settings.maxPhraseWords = v; await this.plugin.saveSettings(); }));
 
-        new Setting(containerEl).setName('Max phrase words').setDesc('Maximum number of consecutive words to detect as a phrase (e.g., "Machine Learning Basics" = 3 words)')
-            .addSlider(s => s.setLimits(1, 10, 1).setValue(this.plugin.settings.maxPhraseWords).setDynamicTooltip()
-                .onChange(async v => { this.plugin.settings.maxPhraseWords = v; await this.plugin.saveSettings(); }));
+        containerEl.createEl('h2', { text: 'Styles' });
+
+        this.addStyleSetting(containerEl, 'Notes', 'note');
+        this.addStyleSetting(containerEl, 'Headings', 'heading');
+        this.addStyleSetting(containerEl, 'Tags', 'tag');
+        this.addStyleSetting(containerEl, 'Properties', 'property');
 
         containerEl.createEl('h2', { text: 'Behavior' });
-
-        new Setting(containerEl).setName('Hover delay (ms)').setDesc('Delay before popup appears')
-            .addText(t => t.setValue(String(this.plugin.settings.hoverDelayMs)).onChange(async v => { this.plugin.settings.hoverDelayMs = parseInt(v) || 250; await this.plugin.saveSettings(); }));
-
-        new Setting(containerEl).setName('Min word length').setDesc('Minimum characters for single word detection')
-            .addText(t => t.setValue(String(this.plugin.settings.minWordLength)).onChange(async v => { this.plugin.settings.minWordLength = parseInt(v) || 3; await this.plugin.saveSettings(); }));
-
-        new Setting(containerEl).setName('Max results').setDesc('Max items per section')
-            .addText(t => t.setValue(String(this.plugin.settings.maxResults)).onChange(async v => { this.plugin.settings.maxResults = parseInt(v) || 10; await this.plugin.saveSettings(); }));
-
-        new Setting(containerEl).setName('Show insert buttons').setDesc('Show 🔗 button to insert links')
-            .addToggle(t => t.setValue(this.plugin.settings.showInsertButtons).onChange(async v => { this.plugin.settings.showInsertButtons = v; await this.plugin.saveSettings(); }));
+        new Setting(containerEl).setName('Hover delay (ms)').addText(t => t.setValue(String(this.plugin.settings.hoverDelayMs)).onChange(async v => { this.plugin.settings.hoverDelayMs = parseInt(v) || 250; await this.plugin.saveSettings(); }));
+        new Setting(containerEl).setName('Min word length').addText(t => t.setValue(String(this.plugin.settings.minWordLength)).onChange(async v => { this.plugin.settings.minWordLength = parseInt(v) || 3; await this.plugin.saveSettings(); }));
+        new Setting(containerEl).setName('Max results').addText(t => t.setValue(String(this.plugin.settings.maxResults)).onChange(async v => { this.plugin.settings.maxResults = parseInt(v) || 10; await this.plugin.saveSettings(); }));
+        new Setting(containerEl).setName('Show insert buttons').addToggle(t => t.setValue(this.plugin.settings.showInsertButtons).onChange(async v => { this.plugin.settings.showInsertButtons = v; await this.plugin.saveSettings(); }));
 
         containerEl.createEl('h2', { text: 'Exclusions' });
+        new Setting(containerEl).setName('Excluded words').addTextArea(t => t.setValue(this.plugin.settings.excludedWords).onChange(async v => { this.plugin.settings.excludedWords = v; this.plugin.updateExcludedWords(); await this.plugin.saveSettings(); }));
+    }
 
-        new Setting(containerEl).setName('Excluded words').setDesc('Comma-separated list of words to ignore')
-            .addTextArea(t => t.setValue(this.plugin.settings.excludedWords).onChange(async v => { this.plugin.settings.excludedWords = v; this.plugin.updateExcludedWords(); await this.plugin.saveSettings(); }));
+    addStyleSetting(containerEl: HTMLElement, name: string, type: 'note' | 'heading' | 'tag' | 'property') {
+        const setting = new Setting(containerEl)
+            .setName(name)
+            .setDesc(`Customize style for ${name.toLowerCase()}`);
+
+        setting.addColorPicker(color => color
+            .setValue((this.plugin.settings as any)[`${type}Color`] || '#000000')
+            .onChange(async value => {
+                (this.plugin.settings as any)[`${type}Color`] = value;
+                await this.plugin.saveSettings();
+            }));
+
+        setting.addToggle(toggle => toggle
+            .setTooltip('Bold')
+            .setValue((this.plugin.settings as any)[`${type}Bold`])
+            .onChange(async value => {
+                (this.plugin.settings as any)[`${type}Bold`] = value;
+                await this.plugin.saveSettings();
+            }));
+
+        setting.addToggle(toggle => toggle
+            .setTooltip('Italic')
+            .setValue((this.plugin.settings as any)[`${type}Italic`])
+            .onChange(async value => {
+                (this.plugin.settings as any)[`${type}Italic`] = value;
+                await this.plugin.saveSettings();
+            }));
     }
 }

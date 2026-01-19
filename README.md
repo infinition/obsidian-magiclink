@@ -20,6 +20,18 @@ MagicLink can detect phrases of up to 10 consecutive words. For example:
 - The plugin prioritizes the longest matching phrase
 - Configurable via slider in settings (1-10 words)
 
+### 🎨 Customizable Styles
+You can fully customize how detected words appear in your reading view:
+- **Color** - Choose any color using a color picker
+- **Bold/Italic** - Toggle bold and italic styles independently
+- **Granular Control** - Set different styles for Notes, Headings, Tags, and Properties
+
+### 🪄 Quick Toggle
+A "Magic Wand" button is added to the header of every note view:
+- **Click** to instantly enable/disable the plugin
+- **Visual Feedback** - The wand becomes transparent when disabled
+- **Instant Update** - The view refreshes immediately to show/hide highlights
+
 ### 🎯 Interactive Popup
 When you hover over a matching word or phrase, a popup appears with:
 - **Navigation links** - Click to open notes, jump to headings, or navigate to tags
@@ -28,9 +40,6 @@ When you hover over a matching word or phrase, a popup appears with:
   - `[[NoteName#Heading]]` for headings
   - `#tag` for tags
   - `[[NoteName]]` for properties
-
-### 🎨 Visual Highlighting
-Matching words and phrases are visually highlighted in reading mode with a dotted underline, styled like internal links.
 
 ### ⚙️ Highly Configurable
 
@@ -46,7 +55,7 @@ Toggle each detection type independently:
 
 #### Behavior
 - **Hover delay** - Time before popup appears (default: 250ms)
-- **Min word length** - Minimum characters for single word detection (default: 3)
+- **Min word length** - Minimum characters for single word detection (default: 2)
 - **Max results** - Maximum items shown per section (default: 10)
 - **Show insert buttons** - Toggle 🔗 buttons on/off
 
@@ -115,11 +124,17 @@ npm run build
 |---------|-------------|---------|
 | Max phrase words | Max consecutive words to detect (1-10) | 5 |
 
+### Styles
+For each type (Notes, Headings, Tags, Properties), you can configure:
+- **Color**: Pick a custom color
+- **Bold**: Toggle bold text
+- **Italic**: Toggle italic text
+
 ### Behavior
 | Setting | Description | Default |
 |---------|-------------|---------|
 | Hover delay (ms) | Time before popup appears | 250 |
-| Min word length | Minimum characters for detection | 3 |
+| Min word length | Minimum characters for detection | 2 |
 | Max results | Max items per section | 10 |
 | Show insert buttons | Show 🔗 button for link insertion | ✅ On |
 
@@ -136,6 +151,7 @@ npm run build
 2. If it matches a note, heading, tag, or property, a **popup** appears
 3. **Click** on any item to navigate to that location
 4. Or click the **🔗 button** to insert the appropriate link
+5. **Toggle Plugin**: Click the 🪄 wand icon in the note header to enable/disable MagicLink.
 
 ## 📝 Popup Sections
 
@@ -190,4 +206,3 @@ Made with ❤️ for the Obsidian community.
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=infinition/obsidian-magiclink&type=date&legend=top-left)](https://www.star-history.com/#infinition/obsidian-magiclink&type=date&legend=top-left)
-
