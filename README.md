@@ -1,3 +1,5 @@
+<img width="500" height="500" alt="Gemini_Generated_Image_ef0tbhef0tbhef0t-removebg-preview" src="https://github.com/user-attachments/assets/81baae38-093f-43ba-b71d-49dd25d18c95" />
+
 # MagicLink for Obsidian
 
 [![Release](https://img.shields.io/github/v/release/infinition/obsidian-magiclink?style=for-the-badge)](https://github.com/infinition/obsidian-magiclink/releases/latest)
@@ -8,6 +10,12 @@
 
 <img width="1079" height="827" alt="image" src="https://github.com/user-attachments/assets/8102ff58-e5f4-44c8-8853-8999c1a45991" />
 
+You can quickly turn it off & on from the button near the View/Edit button.
+
+<img width="341" height="144" alt="image" src="https://github.com/user-attachments/assets/2dd30411-f9f6-4eb7-bbd8-4e6805fcc4bb" />
+
+
+MagikLink will show the highlighted links in Read mode.
 
 
 ## ✨ Features
