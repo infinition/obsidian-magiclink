@@ -1,4 +1,4 @@
 Contact: https://github.com/infinition/obsidian-magiclink/issues
-Expires: 2027-02-25T05:20:12.000Z
+Expires: 2027-02-26T05:17:55.000Z
 Preferred-Languages: en, fr
 Policy: https://github.com/infinition/obsidian-magiclink/blob/wiki/SECURITY.md
