@@ -1,6 +1,6 @@
 {
   "name": "obsidian-magiclink",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Hover-first plugin for Obsidian.",
   "main": "main.js",
   "scripts": {
@@ -8,7 +8,7 @@
     "build": "node esbuild.config.mjs production"
   },
   "keywords": [],
-  "author": "Infinition",
+  "author": "Fabien Polly (Infinition)",
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^16.11.21",

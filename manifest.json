@@ -1,10 +1,10 @@
 {
     "id": "obsidian-magiclink",
     "name": "MagicLink",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "minAppVersion": "0.15.0",
     "description": "Hover-first plugin to quickly navigate to notes or headings and insert links.",
-    "author": "Infinition",
-    "authorUrl": "https://github.com/infinition",
+    "author": "Fabien Polly (Infinition)",
+    "authorUrl": "https://github.com/infinition/obsidian-magiclink",
     "isDesktopOnly": false
 }
