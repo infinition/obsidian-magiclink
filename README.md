@@ -1,4 +1,4 @@
-<img width="500" height="500" alt="MagicLink" src="https://github.com/user-attachments/assets/81baae38-093f-43ba-b71d-49dd25d18c95" />
+<img width="384" height="384" alt="image-removebg-preview (12)" src="https://github.com/user-attachments/assets/a6e9610c-7b92-4713-99f1-e2707f596ec8" />
 
 # MagicLink for Obsidian
 
